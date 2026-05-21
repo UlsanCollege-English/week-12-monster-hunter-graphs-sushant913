@@ -55,11 +55,9 @@ def map_summary(graph: dict[str, list[str]]) -> dict[str, int]:
         for neighbors in graph.values()
     )
 
-    total_routes = total_connections // 2
-
     return {
         "locations": total_locations,
-        "routes": total_routes,
+        "routes": total_connections // 2,
     }
 
 
