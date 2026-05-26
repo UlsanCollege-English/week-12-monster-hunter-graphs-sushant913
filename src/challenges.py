@@ -1,90 +1,201 @@
+from math import inf
 import heapq
 
 
-def build_hunter_map(edges: list[tuple[str, str]]) -> dict[str, list[str]]:
-    graph: dict[str, set[str]] = {}
+HAUNTED_CITY = {
+    "Crypt Kitchen": {
+        "Fog Alley": 2,
+        "Bone Bridge": 5,
+    },
+    "Fog Alley": {
+        "Moon Bridge": 1,
+        "Goblin Market": 6,
+    },
+    "Bone Bridge": {
+        "Goblin Market": 2,
+    },
+    "Moon Bridge": {
+        "Werewolf Den": 5,
+        "Goblin Market": 3,
+    },
+    "Goblin Market": {
+        "Vampire Tower": 5,
+    },
+    "Werewolf Den": {
+        "Vampire Tower": 2,
+    },
+    "Vampire Tower": {},
+}
 
-    for start, end in edges:
-        if start not in graph:
-            graph[start] = set()
 
-        if end not in graph:
-            graph[end] = set()
+def validate_haunted_map(graph: dict[str, dict[str, int]]) -> None:
 
-        graph[start].add(end)
-        graph[end].add(start)
+    if not isinstance(graph, dict):
+        raise ValueError("Graph must be a dictionary.")
 
-    return {
-        location: sorted(neighbors)
-        for location, neighbors in graph.items()
+    for node, neighbors in graph.items():
+
+        if not isinstance(neighbors, dict):
+            raise ValueError(
+                f"Neighbors for '{node}' must be a dictionary."
+            )
+
+        for neighbor, weight in neighbors.items():
+
+            if neighbor not in graph:
+                raise ValueError(
+                    f"Neighbor '{neighbor}' does not exist."
+                )
+
+            if weight <= 0:
+                raise ValueError(
+                    "Edge weights must be positive."
+                )
+
+
+def monster_delivery_costs(
+    graph: dict[str, dict[str, int]],
+    start: str,
+) -> dict[str, float]:
+
+    validate_haunted_map(graph)
+
+    if start not in graph:
+        raise ValueError("Start location missing.")
+
+    distances = {
+        node: inf for node in graph
     }
 
+    distances[start] = 0
 
-def build_weighted_hunter_map(
-    edges: list[tuple[str, str, int]]
-) -> dict[str, dict[str, int]]:
+    priority_queue = [(0, start)]
 
-    graph: dict[str, dict[str, int]] = {}
+    while priority_queue:
 
-    for start, end, weight in edges:
+        current_cost, current_node = heapq.heappop(
+            priority_queue
+        )
 
-        if weight <= 0:
-            raise ValueError
+        if current_cost > distances[current_node]:
+            continue
 
-        if start not in graph:
-            graph[start] = {}
+        for neighbor, weight in graph[current_node].items():
 
-        if end not in graph:
-            graph[end] = {}
+            new_cost = current_cost + weight
 
-        current = graph[start].get(end)
+            if new_cost < distances[neighbor]:
 
-        if current is None or weight < current:
-            graph[start][end] = weight
-            graph[end][start] = weight
+                distances[neighbor] = new_cost
 
-    return graph
+                heapq.heappush(
+                    priority_queue,
+                    (new_cost, neighbor)
+                )
+
+    return distances
 
 
-def map_summary(graph: dict[str, list[str]]) -> dict[str, int]:
+def shortest_monster_delivery(
+    graph: dict[str, dict[str, int]],
+    start: str,
+    target: str,
+) -> tuple[float, list[str]]:
 
-    total_locations = len(graph)
+    validate_haunted_map(graph)
 
-    total_connections = sum(
-        len(neighbors)
-        for neighbors in graph.values()
-    )
+    if start not in graph or target not in graph:
+        return (inf, [])
 
-    return {
-        "locations": total_locations,
-        "routes": total_connections // 2,
+    if start == target:
+        return (0, [start])
+
+    distances = {
+        node: inf for node in graph
     }
 
+    distances[start] = 0
 
-def most_connected_location(graph: dict[str, list[str]]) -> str | None:
+    previous_nodes = {}
 
-    if not graph:
-        return None
+    priority_queue = [(0, start)]
 
-    return min(
+    while priority_queue:
+
+        current_cost, current_node = heapq.heappop(
+            priority_queue
+        )
+
+        if current_cost > distances[current_node]:
+            continue
+
+        if current_node == target:
+            break
+
+        for neighbor, weight in graph[current_node].items():
+
+            new_cost = current_cost + weight
+
+            if new_cost < distances[neighbor]:
+
+                distances[neighbor] = new_cost
+
+                previous_nodes[neighbor] = current_node
+
+                heapq.heappush(
+                    priority_queue,
+                    (new_cost, neighbor)
+                )
+
+    if distances[target] == inf:
+        return (inf, [])
+
+    path = []
+
+    current = target
+
+    while current != start:
+
+        path.append(current)
+
+        current = previous_nodes[current]
+
+    path.append(start)
+
+    path.reverse()
+
+    return (distances[target], path)
+
+
+def best_next_monster_stop(
+    graph: dict[str, dict[str, int]],
+    start: str,
+    targets: list[str],
+) -> tuple[str, float]:
+
+    validate_haunted_map(graph)
+
+    if start not in graph:
+        return ("", inf)
+
+    distances = monster_delivery_costs(
         graph,
-        key=lambda location: (-len(graph[location]), location)
+        start
     )
 
+    best_target = ""
+    best_cost = inf
 
-def priority_hunt_order(
-    reports: list[tuple[int, str]]
-) -> list[str]:
+    for target in targets:
 
-    heap: list[tuple[int, str]] = []
+        if target not in distances:
+            continue
 
-    for priority, location in reports:
-        heapq.heappush(heap, (priority, location))
+        current_cost = distances[target]
 
-    ordered: list[str] = []
+        if current_cost < best_cost:
 
-    while heap:
-        _, location = heapq.heappop(heap)
-        ordered.append(location)
+            best_cost = current_cost
+            best_target = target
 
-    return ordered
+    return (best_target, best_cost)
